@@ -1,0 +1,39 @@
+# Seed0 - 代謝AI
+
+# データベースファイル（身体の記録は各マシン固有）
+*.db
+*.db-journal
+*.db-wal
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+.venv/
+venv/
+env/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# エクスポートされたデータ
+exports/
+*.csv
+
+# ログ
+logs/
+*.log

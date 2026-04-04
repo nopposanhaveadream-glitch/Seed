@@ -1,0 +1,40 @@
+# Seed0 - 快適領域（Comfort Zone）定義
+# 
+# このファイルは Phase 0 のデータ収集後に値を決定する。
+# 現時点では構造のテンプレートのみ。
+#
+# 各パラメータについて「生存可能範囲」のみを定義する。
+# 「最適値」は定義しない（AIが自分で発見する）。
+
+cpu_temperature:
+  unit: "°C"
+  min: 0      # これ以下は異常
+  max: 100    # これ以上は危険
+  # 注意: 最適温度は定義しない。AIが学習する。
+
+memory_pressure:
+  unit: "%"
+  min: 0
+  max: 95     # これ以上はシステム不安定
+  
+cpu_usage:
+  unit: "%"
+  min: 0
+  max: 100    # リミッターで70%に制限（別途設定）
+
+disk_usage:
+  unit: "%"
+  min: 0
+  max: 90     # これ以上はシステム動作に支障
+
+swap_usage:
+  unit: "MB"
+  min: 0
+  max: 4096   # Phase 0のデータを見て調整
+
+# Phase 0 完了後に追加予定:
+# - gpu_temperature
+# - network_bandwidth
+# - power_consumption
+# - fan_speed
+# - load_average
