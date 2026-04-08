@@ -6,7 +6,8 @@ VEはSeed0の「生命力」に相当する内部通貨。
 
 シミュレーション検証済みの確定パラメータ:
   - base_rate: 0.01 VE/秒
-  - rest_ve_recovery_rate: 0.005 VE/秒
+  - rest_ve_recovery_rate: 0.012 VE/秒（v4-Aで確定）
+  - rest_bmc_fraction: 0.5（v4-Aで確定。rest中はBMC50%に軽減）
   - sleep_ve_recovery_rate: 0.02 VE/秒
   - sleep_bmc_fraction: 0.3
 """
@@ -20,7 +21,14 @@ VEはSeed0の「生命力」に相当する内部通貨。
 BASE_RATE = 0.01
 
 # rest行動中のVE回復率（VE/秒）。「食事」に相当。
-REST_VE_RECOVERY_RATE = 0.005
+# v4-A確定: 0.005 → 0.008 → 0.012
+# 正味回復: +0.007/s（ストレス倍率=1.0時）、VE 0→15 ≈ 36分
+REST_VE_RECOVERY_RATE = 0.012
+
+# rest行動中のBMC軽減率（通常の50%）
+# 食事中は代謝コストが半減する（睡眠中の30%よりは高い）
+# v4-A確定: 0.7 → 0.5
+REST_BMC_FRACTION = 0.5
 
 # 睡眠中のVE回復率（VE/秒）
 SLEEP_VE_RECOVERY_RATE = 0.02
@@ -92,14 +100,30 @@ def calculate_bmc(sensors: dict, dt: float, is_sleeping: bool = False) -> float:
         return BASE_RATE * bsm * dt
 
 
-def calculate_rest_recovery(dt: float) -> float:
+def calculate_rest_recovery(dt: float, sensors: dict = None) -> float:
     """
     rest行動中のVE回復量。「食事」に相当。
     restを選んでいる間だけ回復する。
 
+    rest中はBMCが軽減される（通常の50%）。
+    軽減分（50%）をリベートとして回復に上乗せする。
+    これにより、無意識プロセスで先に消費されたBMCの一部が返ってくる。
+
+    sensors: センサー値（ストレス倍率の計算に使用）
     returns: 回復するVE量（正の値）
     """
-    return REST_VE_RECOVERY_RATE * dt
+    # 基本回復
+    recovery = REST_VE_RECOVERY_RATE * dt
+
+    # BMC軽減リベート（無意識プロセスで消費済みのBMCの50%を返す）
+    if sensors is not None:
+        bsm = body_stress_multiplier(sensors)
+    else:
+        bsm = 1.0
+    bmc_rebate = BASE_RATE * bsm * (1.0 - REST_BMC_FRACTION) * dt
+    recovery += bmc_rebate
+
+    return recovery
 
 
 def calculate_sleep_recovery(dt: float) -> float:

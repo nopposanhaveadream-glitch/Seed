@@ -250,7 +250,8 @@ class SimState:
     sleep_ve_recovery_rate: float = 0.02
     sleep_bmc_fraction: float = 0.3
     sleep_fatigue_recovery_rate: float = 0.014
-    rest_ve_recovery_rate: float = 0.005  # rest行動選択時のVE回復率（VE/秒）
+    rest_ve_recovery_rate: float = 0.008  # rest行動選択時のVE回復率（VE/秒）v3修正
+    rest_bmc_fraction: float = 0.7  # rest中のBMC軽減率（v3追加）
 
     # 内部
     baseline: RunningBaseline = field(default_factory=RunningBaseline)
@@ -414,10 +415,12 @@ def run_simulation(sensor_data: list, state: SimState,
                 state.ve = max(0.0, state.ve - eff_cost)
                 state.action_cooldowns[chosen] = now_step
 
-                # rest行動の処理: VE回復（食事に相当）
+                # rest行動の処理: VE回復（食事に相当）+ BMC軽減リベート
                 if chosen == "rest":
                     ve_gain = state.rest_ve_recovery_rate * dt
-                    state.ve = min(100.0, state.ve + ve_gain)
+                    # BMC軽減リベート: 無意識で消費されたBMCの30%を返す
+                    bmc_rebate = state.base_rate * bsm * (1.0 - state.rest_bmc_fraction) * dt
+                    state.ve = min(100.0, state.ve + ve_gain + bmc_rebate)
 
                 # 睡眠行動の処理
                 if chosen == "sleep" and enable_sleep and state.fatigue > 30:

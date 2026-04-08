@@ -1,0 +1,155 @@
+{
+  "v3": {
+    "awake_ve": {
+      "awake_ve_zero_pct": 1.2681942643032138,
+      "awake_ve_mean": 3.633289997923832,
+      "awake_ve_median": 0.1330000000000001,
+      "awake_ve_min": 9.870370367537351e-06,
+      "awake_ve_max": 99.85000000000001,
+      "awake_ve_p10": 0.06800000000000002,
+      "awake_ve_p25": 0.09400000000000004,
+      "awake_ve_p75": 0.18429083333333351,
+      "awake_steps": 13878,
+      "awake_ve_zero_steps": 176
+    },
+    "actions": {
+      "awake_total": 13878,
+      "rest_pct": 91.7639429312581
+    },
+    "action_detail": {
+      "sense_body": 744,
+      "write_memory": 106,
+      "rest": 12735,
+      "sense_deep": 50,
+      "sleep": 175,
+      "adjust_priority": 44,
+      "purge_memory": 15,
+      "clean_temp": 9
+    },
+    "sleep": {
+      "sleep_count": 2,
+      "total_sleep_min": 283.6,
+      "avg_duration_min": 141.8,
+      "sleep_pct": 19.7
+    },
+    "sleep_cycles": [
+      {
+        "start_step": 7146,
+        "end_step": 8847,
+        "duration_min": 141.8
+      },
+      {
+        "start_step": 15074,
+        "end_step": 16775,
+        "duration_min": 141.8
+      }
+    ]
+  },
+  "v4-B": {
+    "awake_ve": {
+      "awake_ve_zero_pct": 1.9457463428490271,
+      "awake_ve_mean": 3.5569864019582242,
+      "awake_ve_median": 0.18423471990739723,
+      "awake_ve_min": 9.708888888806944e-05,
+      "awake_ve_max": 99.85000000000001,
+      "awake_ve_p10": 0.07500000000000001,
+      "awake_ve_p25": 0.1215,
+      "awake_ve_p75": 0.33075000000000015,
+      "awake_steps": 14082,
+      "awake_ve_zero_steps": 274
+    },
+    "actions": {
+      "awake_total": 14082,
+      "rest_pct": 85.08734554750745
+    },
+    "action_detail": {
+      "sense_body": 1546,
+      "write_memory": 229,
+      "sense_deep": 90,
+      "rest": 11982,
+      "adjust_priority": 60,
+      "sleep": 148,
+      "purge_memory": 18,
+      "clean_temp": 9
+    },
+    "sleep": {
+      "sleep_count": 2,
+      "total_sleep_min": 202.0,
+      "avg_duration_min": 101.0,
+      "sleep_pct": 14.0
+    },
+    "sleep_cycles": [
+      {
+        "start_step": 7146,
+        "end_step": 8847,
+        "duration_min": 141.8
+      },
+      {
+        "start_step": 11431,
+        "end_step": 12153,
+        "duration_min": 60.2
+      }
+    ]
+  },
+  "v4-A": {
+    "awake_ve": {
+      "awake_ve_zero_pct": 0.5719187875321705,
+      "awake_ve_mean": 4.366083534375051,
+      "awake_ve_median": 0.21799999999999997,
+      "awake_ve_min": 1.7763568394002505e-15,
+      "awake_ve_max": 99.85000000000001,
+      "awake_ve_p10": 0.08499999999999999,
+      "awake_ve_p25": 0.12424234490740689,
+      "awake_ve_p75": 0.48400000000000026,
+      "awake_steps": 13988,
+      "awake_ve_zero_steps": 80
+    },
+    "actions": {
+      "awake_total": 13988,
+      "rest_pct": 79.84701172433515
+    },
+    "action_detail": {
+      "sense_body": 1950,
+      "write_memory": 319,
+      "sleep": 280,
+      "rest": 11169,
+      "sense_deep": 127,
+      "adjust_priority": 98,
+      "purge_memory": 29,
+      "clean_temp": 16
+    },
+    "sleep": {
+      "sleep_count": 5,
+      "total_sleep_min": 274.7,
+      "avg_duration_min": 54.9,
+      "sleep_pct": 19.1
+    },
+    "sleep_cycles": [
+      {
+        "start_step": 4341,
+        "end_step": 5293,
+        "duration_min": 79.3
+      },
+      {
+        "start_step": 6817,
+        "end_step": 7405,
+        "duration_min": 49.0
+      },
+      {
+        "start_step": 9901,
+        "end_step": 10489,
+        "duration_min": 49.0
+      },
+      {
+        "start_step": 12843,
+        "end_step": 13425,
+        "duration_min": 48.5
+      },
+      {
+        "start_step": 14956,
+        "end_step": 15543,
+        "duration_min": 48.9
+      }
+    ]
+  }
+}

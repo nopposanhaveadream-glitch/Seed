@@ -1,0 +1,76 @@
+{
+  "v3": {
+    "awake_ve": {
+      "awake_ve_zero_pct": 1.1024643320363166,
+      "awake_ve_mean": 5.470133053058662,
+      "awake_ve_min": 4.5983333326643505e-05,
+      "awake_ve_max": 99.85000000000001,
+      "awake_ve_median": 0.1395000000000001,
+      "awake_steps": 13878,
+      "awake_ve_zero_steps": 153
+    },
+    "actions": {
+      "total": 17280,
+      "awake_total": 13878,
+      "awake_counts": {
+        "sense_body": 688,
+        "write_memory": 119,
+        "rest": 12867,
+        "sense_deep": 59,
+        "sleep": 75,
+        "adjust_priority": 39,
+        "purge_memory": 21,
+        "clean_temp": 10
+      },
+      "rest_pct": 92.71508862948552
+    },
+    "sleep": {
+      "sleep_count": 2,
+      "total_sleep_min": 283.6,
+      "avg_duration_min": 141.8,
+      "sleep_pct": 19.7
+    }
+  },
+  "v2": {
+    "awake_ve": {
+      "awake_ve_zero_pct": 0.0,
+      "awake_ve_mean": 3.754842769131057,
+      "awake_ve_min": 0.025,
+      "awake_ve_max": 99.85000000000001,
+      "awake_ve_median": 0.025,
+      "awake_steps": 13878,
+      "awake_ve_zero_steps": 0
+    },
+    "actions": {
+      "total": 17280,
+      "awake_total": 13878,
+      "awake_counts": {
+        "sense_body": 372,
+        "write_memory": 67,
+        "sleep": 152,
+        "sense_deep": 48,
+        "adjust_priority": 77,
+        "rest": 13134,
+        "purge_memory": 18,
+        "clean_temp": 10
+      },
+      "rest_pct": 94.63899697362731
+    },
+    "sleep": {
+      "sleep_count": 2,
+      "total_sleep_min": 283.6,
+      "avg_duration_min": 141.8,
+      "sleep_pct": 19.7
+    }
+  },
+  "parameters": {
+    "v3": {
+      "rest_ve_recovery_rate": 0.008,
+      "rest_bmc_fraction": 0.7
+    },
+    "v2": {
+      "rest_ve_recovery_rate": 0.005,
+      "rest_bmc_fraction": 1.0
+    }
+  }
+}

@@ -206,9 +206,9 @@ class ConsciousProcess:
         # 行動の実行
         result = execute_action(chosen)
 
-        # rest行動の特殊処理: VE回復
+        # rest行動の特殊処理: VE回復（食事）+ BMC軽減リベート
         if chosen == "rest":
-            ve_gain = metabolism.calculate_rest_recovery(dt)
+            ve_gain = metabolism.calculate_rest_recovery(dt, sensors)
             state.ve = metabolism.clamp_ve(state.ve + ve_gain)
 
         # sleep行動の処理

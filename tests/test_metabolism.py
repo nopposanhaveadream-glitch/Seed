@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from core.metabolism import (
     body_stress_multiplier, calculate_bmc, calculate_rest_recovery,
     calculate_sleep_recovery, clamp_ve,
-    BASE_RATE, REST_VE_RECOVERY_RATE, SLEEP_VE_RECOVERY_RATE
+    BASE_RATE, REST_VE_RECOVERY_RATE, REST_BMC_FRACTION, SLEEP_VE_RECOVERY_RATE
 )
 
 
@@ -61,13 +61,25 @@ def test_calculate_bmc_sleeping():
 
 
 def test_rest_recovery():
-    """rest行動のVE回復が正しいこと。"""
-    recovery = calculate_rest_recovery(dt=5.0)
-    expected = REST_VE_RECOVERY_RATE * 5.0
-    assert abs(recovery - expected) < 0.001, f"rest回復不正: {recovery}"
-    # restの回復はBMCより少ない（正味で減少）
-    bmc = calculate_bmc({"memory_pressure_percent": 24, "cpu_usage_percent": 14}, 5.0, False)
-    assert recovery < bmc, "rest回復がBMCを上回っている（正味で増加するのは設計違反）"
+    """rest行動のVE回復が正しいこと。BMC軽減リベートを含む。"""
+    sensors = {"memory_pressure_percent": 24, "cpu_usage_percent": 14}
+
+    # sensorsなし（ストレス倍率=1.0で計算）
+    recovery_no_sensors = calculate_rest_recovery(dt=5.0)
+    expected_base = REST_VE_RECOVERY_RATE * 5.0 + BASE_RATE * 1.0 * (1.0 - REST_BMC_FRACTION) * 5.0
+    assert abs(recovery_no_sensors - expected_base) < 0.001, f"rest回復不正(sensorsなし): {recovery_no_sensors}"
+
+    # sensorsあり（ストレス倍率を反映）
+    recovery_with_sensors = calculate_rest_recovery(dt=5.0, sensors=sensors)
+    from core.metabolism import body_stress_multiplier
+    bsm = body_stress_multiplier(sensors)
+    expected_with = REST_VE_RECOVERY_RATE * 5.0 + BASE_RATE * bsm * (1.0 - REST_BMC_FRACTION) * 5.0
+    assert abs(recovery_with_sensors - expected_with) < 0.001, f"rest回復不正(sensorsあり): {recovery_with_sensors}"
+
+    # v3設計: rest中の正味VE収支がプラスになること（ストレス倍率=1.0時）
+    bmc = calculate_bmc(sensors, 5.0, False)
+    net = recovery_with_sensors - bmc
+    assert net > 0, f"rest中の正味VEがマイナス: {net:.4f}（v3ではプラスが正しい）"
 
 
 def test_sleep_recovery():
