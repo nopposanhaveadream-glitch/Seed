@@ -1,0 +1,310 @@
+{
+  "test1": {
+    "0.005": {
+      "first_zero_hour": 0.4888888888888889,
+      "zero_pct": 76.62543177525566,
+      "mean_ve": 12.213873983591148,
+      "min_ve": 0.0,
+      "sleep_count": 7,
+      "sleep_hours": 11.8125
+    },
+    "0.008": {
+      "first_zero_hour": 0.4791666666666667,
+      "zero_pct": 78.14323878235125,
+      "mean_ve": 11.235412453447628,
+      "min_ve": 0.0,
+      "sleep_count": 7,
+      "sleep_hours": 11.8125
+    },
+    "0.01": {
+      "first_zero_hour": 0.45416666666666666,
+      "zero_pct": 78.5992615154248,
+      "mean_ve": 10.75771160220523,
+      "min_ve": 0.0,
+      "sleep_count": 7,
+      "sleep_hours": 11.8125
+    },
+    "0.012": {
+      "first_zero_hour": 0.4097222222222222,
+      "zero_pct": 78.45462743963655,
+      "mean_ve": 10.490533616815949,
+      "min_ve": 0.0,
+      "sleep_count": 7,
+      "sleep_hours": 11.8125
+    },
+    "0.015": {
+      "first_zero_hour": 0.37222222222222223,
+      "zero_pct": 78.85619969711924,
+      "mean_ve": 9.816425287708396,
+      "min_ve": 0.0,
+      "sleep_count": 7,
+      "sleep_hours": 11.8125
+    }
+  },
+  "test2": {
+    "fr=0.0015_rr=0.01": {
+      "fatigue_rate": 0.0015,
+      "recovery_rate": 0.01,
+      "sleep_count": 5,
+      "avg_wake_hours": 12.126666666666669,
+      "avg_sleep_hours": 2.3625,
+      "mean_fatigue": 50.43377642701723,
+      "mean_ve": 11.231045052380221
+    },
+    "fr=0.0015_rr=0.014": {
+      "fatigue_rate": 0.0015,
+      "recovery_rate": 0.014,
+      "sleep_count": 5,
+      "avg_wake_hours": 12.123888888888889,
+      "avg_sleep_hours": 1.6875,
+      "mean_fatigue": 51.392591623803916,
+      "mean_ve": 8.132558762556217
+    },
+    "fr=0.0015_rr=0.02": {
+      "fatigue_rate": 0.0015,
+      "recovery_rate": 0.02,
+      "sleep_count": 6,
+      "avg_wake_hours": 11.975925925925926,
+      "avg_sleep_hours": 1.1819444444444445,
+      "mean_fatigue": 50.25976968385027,
+      "mean_ve": 4.304479743005111
+    },
+    "fr=0.0023_rr=0.01": {
+      "fatigue_rate": 0.0023,
+      "recovery_rate": 0.01,
+      "sleep_count": 7,
+      "avg_wake_hours": 8.549603174603176,
+      "avg_sleep_hours": 2.3625000000000003,
+      "mean_fatigue": 50.89137955551203,
+      "mean_ve": 15.525159003329415
+    },
+    "fr=0.0023_rr=0.014": {
+      "fatigue_rate": 0.0023,
+      "recovery_rate": 0.014,
+      "sleep_count": 7,
+      "avg_wake_hours": 8.589087301587302,
+      "avg_sleep_hours": 1.6875,
+      "mean_fatigue": 51.89416660863474,
+      "mean_ve": 10.75771160220523
+    },
+    "fr=0.0023_rr=0.02": {
+      "fatigue_rate": 0.0023,
+      "recovery_rate": 0.02,
+      "sleep_count": 8,
+      "avg_wake_hours": 8.508680555555555,
+      "avg_sleep_hours": 1.1819444444444445,
+      "mean_fatigue": 50.763591294026135,
+      "mean_ve": 5.994624860045282
+    },
+    "fr=0.003_rr=0.01": {
+      "fatigue_rate": 0.003,
+      "recovery_rate": 0.01,
+      "sleep_count": 8,
+      "avg_wake_hours": 6.825173611111111,
+      "avg_sleep_hours": 2.3625,
+      "mean_fatigue": 52.33162543509628,
+      "mean_ve": 19.061805899368725
+    },
+    "fr=0.003_rr=0.014": {
+      "fatigue_rate": 0.003,
+      "recovery_rate": 0.014,
+      "sleep_count": 9,
+      "avg_wake_hours": 6.805864197530864,
+      "avg_sleep_hours": 1.6875,
+      "mean_fatigue": 51.26944526608097,
+      "mean_ve": 12.51364672389638
+    },
+    "fr=0.003_rr=0.02": {
+      "fatigue_rate": 0.003,
+      "recovery_rate": 0.02,
+      "sleep_count": 10,
+      "avg_wake_hours": 6.801944444444445,
+      "avg_sleep_hours": 1.1819444444444442,
+      "mean_fatigue": 51.36504308162681,
+      "mean_ve": 7.027078401027773
+    }
+  },
+  "test3": {
+    "alpha=0.0005": {
+      "memory_pressure_percent": {
+        "final_mean": 24.659652410481392,
+        "final_stddev": 3.117591168323063
+      },
+      "cpu_usage_percent": {
+        "final_mean": 14.883098715756109,
+        "final_stddev": 6.7200974635085755
+      }
+    },
+    "alpha=0.001": {
+      "memory_pressure_percent": {
+        "final_mean": 23.14639174791754,
+        "final_stddev": 3.2584941115824377
+      },
+      "cpu_usage_percent": {
+        "final_mean": 15.601762430287545,
+        "final_stddev": 6.9188161026259785
+      }
+    },
+    "alpha=0.005": {
+      "memory_pressure_percent": {
+        "final_mean": 20.433948858761287,
+        "final_stddev": 1.234309728275495
+      },
+      "cpu_usage_percent": {
+        "final_mean": 17.468137065199556,
+        "final_stddev": 7.030922587321696
+      }
+    },
+    "alpha=0.01": {
+      "memory_pressure_percent": {
+        "final_mean": 20.572416342272387,
+        "final_stddev": 0.7226333707599099
+      },
+      "cpu_usage_percent": {
+        "final_mean": 18.106101146112195,
+        "final_stddev": 7.104714234909094
+      }
+    }
+  },
+  "test4": {
+    "cost=0.0005": {
+      "memory_cost_rate": 0.0005,
+      "mean_memory_count": 26.564192005989554,
+      "min_memory": 1,
+      "max_memory": 362,
+      "wipeout_steps": 9715,
+      "mean_ve": 10.77080744142319
+    },
+    "cost=0.001": {
+      "memory_cost_rate": 0.001,
+      "mean_memory_count": 26.436675798465178,
+      "min_memory": 1,
+      "max_memory": 334,
+      "wipeout_steps": 9715,
+      "mean_ve": 10.75771160220523
+    },
+    "cost=0.002": {
+      "memory_cost_rate": 0.002,
+      "mean_memory_count": 25.487842229746974,
+      "min_memory": 1,
+      "max_memory": 344,
+      "wipeout_steps": 9715,
+      "mean_ve": 10.52064256722647
+    }
+  },
+  "test5": {
+    "action_distribution": {
+      "adjust_priority": 0.21950347972570575,
+      "clean_temp": 0.0442410114175841,
+      "purge_memory": 0.07486940393745001,
+      "rest": 79.89416188807024,
+      "sense_body": 1.723697867923565,
+      "sense_deep": 0.28756657421429666,
+      "sleep": 0.4645306198846331,
+      "sleeping": 16.496792526672223,
+      "write_memory": 0.794636628154299
+    },
+    "total_steps": 58769,
+    "q_table_size": 81,
+    "final_epsilon": 0.05,
+    "first_half": {
+      "sense_body": 2.1474271712496598,
+      "rest": 83.72243397767492,
+      "write_memory": 0.6806425265450585,
+      "sleep": 0.558126871766948,
+      "sense_deep": 0.22461203375986932,
+      "adjust_priority": 0.1429349305744623,
+      "purge_memory": 0.07146746528723115,
+      "clean_temp": 0.047644976858154095,
+      "sleeping": 12.404710046283691
+    },
+    "second_half": {
+      "rest": 76.06602007827122,
+      "sleeping": 20.588735749532074,
+      "sense_body": 1.2999829845159094,
+      "sense_deep": 0.3505189722647609,
+      "purge_memory": 0.07827122681640293,
+      "clean_temp": 0.0408371618172537,
+      "adjust_priority": 0.29606942317508933,
+      "write_memory": 0.9086268504338949,
+      "sleep": 0.3709375531733878
+    }
+  },
+  "breaking": {
+    "ve_br=0.015": {
+      "mean_last_hour_ve": 63.465926030092874,
+      "zero_pct": 79.61569626114134,
+      "status": "OK"
+    },
+    "ve_br=0.02": {
+      "mean_last_hour_ve": 55.0593780092585,
+      "zero_pct": 80.68063433267739,
+      "status": "OK"
+    },
+    "ve_br=0.025": {
+      "mean_last_hour_ve": 47.10732181712963,
+      "zero_pct": 80.75008681560367,
+      "status": "OK"
+    },
+    "ve_br=0.03": {
+      "mean_last_hour_ve": 40.326755949073764,
+      "zero_pct": 81.00474591966663,
+      "status": "OK"
+    },
+    "ve_br=0.04": {
+      "mean_last_hour_ve": 30.848762083333895,
+      "zero_pct": 81.87290195624493,
+      "status": "OK"
+    },
+    "ve_br=0.05": {
+      "mean_last_hour_ve": 28.33750000000097,
+      "zero_pct": 80.39124898715129,
+      "status": "OK"
+    },
+    "fat_fr=0.003": {
+      "mean_last_fatigue": 33.86692500771876,
+      "stuck_pct": 0.011575413821044102,
+      "status": "OK"
+    },
+    "fat_fr=0.005": {
+      "mean_last_fatigue": 70.73451440201087,
+      "stuck_pct": 0.023150827642088204,
+      "status": "OK"
+    },
+    "fat_fr=0.008": {
+      "mean_last_fatigue": 74.58582222994389,
+      "stuck_pct": 0.023150827642088204,
+      "status": "OK"
+    },
+    "fat_fr=0.01": {
+      "mean_last_fatigue": 44.10435277778635,
+      "stuck_pct": 0.03472624146313231,
+      "status": "OK"
+    },
+    "fat_fr=0.015": {
+      "mean_last_fatigue": 28.637071948307934,
+      "stuck_pct": 0.03472624146313231,
+      "status": "OK"
+    },
+    "mem_mcr=0.001": {
+      "min_memory": 1,
+      "wipeout_pct": 14.295636068989467,
+      "status": "壊れる"
+    },
+    "mem_mcr=0.003": {
+      "min_memory": 1,
+      "wipeout_pct": 14.295636068989467,
+      "status": "壊れる"
+    },
+    "mem_mcr=0.005": {
+      "min_memory": 1,
+      "wipeout_pct": 14.295636068989467,
+      "status": "壊れる"
+    },
+    "mem_mcr=0.01": {
+      "min_memory": 1,
+      "wipeout_pct": 14.295636068989467,
+      "status": "壊れる"
+    }
+  }
+}

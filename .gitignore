@@ -30,10 +30,20 @@ env/
 *.swo
 *~
 
-# エクスポートされたデータ
+# エクスポートされたデータ（大容量CSV等）
 exports/
 *.csv
 
 # ログ
 logs/
 *.log
+
+# ランタイム状態（~/.seed0/ に保存、各マシン固有）
+# state/, memory/, logs/ は ~/.seed0/ 配下
+
+# 旧ファイル・一時ファイル
+files/
+files.zip
+
+# 大容量データ（Phase 0生データ等）
+phase0_data.csv
