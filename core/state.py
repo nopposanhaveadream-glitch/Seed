@@ -171,6 +171,9 @@ class AgentState:
         conn.commit()
         conn.close()
 
+        # Q値テーブルも定期保存（クラッシュ時のデータロスを防ぐ）
+        self.long_term_memory.save_q_table(self.action_selector.q_table)
+
         self._last_save_time = now
 
     def load(self) -> bool:
@@ -231,15 +234,23 @@ class AgentState:
             return False
 
     def get_status_dict(self) -> dict:
-        """現在の状態をサマリ辞書として返す。ログ表示用。"""
+        """現在の状態をサマリ辞書として返す。ログ表示・--status用。"""
+        q_states = len(self.action_selector.q_table)
+        q_entries = sum(
+            len(actions) for actions in self.action_selector.q_table.values()
+        )
         return {
             "ve": round(self.ve, 2),
             "fatigue": round(self.fatigue, 2),
             "is_sleeping": self.is_sleeping,
             "cz_status": self.comfort_zone_status,
             "stm_count": self.short_term_memory.count,
+            "ltm_count": self.long_term_memory.get_experience_count(),
             "total_steps": self.total_steps,
+            "total_actions": dict(self.total_actions),
             "epsilon": round(self.action_selector.epsilon, 4),
+            "q_table_states": q_states,
+            "q_table_entries": q_entries,
             "uptime_h": round(self.uptime_seconds() / 3600, 2),
             "sleep_count": len(self.sleep_log),
         }

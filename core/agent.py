@@ -145,46 +145,86 @@ class Seed0Agent:
         self.state.latest_sensors = sensors
 
         # === 2. METABOLIZE（代謝計算）=== 無意識プロセス
+        was_sleeping = self.state.is_sleeping
         self.unconscious.tick(self.state, sensors, dt)
 
+        # 睡眠/覚醒の切り替わりを検知してログ出力
+        if was_sleeping and not self.state.is_sleeping:
+            logger.info(
+                f"☀️ 起床 | VE={self.state.ve:.1f} | 疲労={self.state.fatigue:.1f} | "
+                f"step={self.state.total_steps}"
+            )
+
         # comfort zone状態を更新
+        prev_cz = self.state.comfort_zone_status
         self.state.comfort_zone_status = evaluate_comfort_zone(
             self.state.baseline, sensors
         )
+        # comfort zone状態の変化をログ出力
+        if prev_cz != self.state.comfort_zone_status:
+            cz_icon = {"normal": "🟢", "alert": "🟡", "emergency": "🔴"}.get(
+                self.state.comfort_zone_status, "⚪"
+            )
+            logger.info(
+                f"CZ変化: {prev_cz} → {self.state.comfort_zone_status} {cz_icon} | "
+                f"VE={self.state.ve:.1f} | step={self.state.total_steps}"
+            )
 
         # === 3-5. DECIDE → ACT → EVALUATE === 意識プロセス
         # 次のセンサー値がないので、前回のセンサー値との差分で評価
+        ve_before = self.state.ve
         chosen = self.conscious.think_and_act(
             self.state, sensors, self.state.prev_sensors, dt
         )
+        ve_after = self.state.ve
 
-        # ログ出力（デバッグレベル）
-        if self.state.total_steps % 12 == 0:  # 1分に1回
-            logger.debug(
-                f"step={self.state.total_steps} "
-                f"VE={self.state.ve:.1f} F={self.state.fatigue:.1f} "
-                f"action={chosen} cz={self.state.comfort_zone_status}"
+        # 入眠の検知
+        if not was_sleeping and self.state.is_sleeping:
+            logger.info(
+                f"💤 入眠 | VE={self.state.ve:.1f} | 疲労={self.state.fatigue:.1f} | "
+                f"step={self.state.total_steps}"
             )
 
+        # 毎ステップの行動ログ（INFOレベル）
+        reward = self.state.immediate_memory.last_reward
+        logger.info(
+            f"[{self.state.total_steps:>6}] "
+            f"{chosen:<16} | "
+            f"VE={ve_after:5.1f} (Δ{ve_after - ve_before:+.2f}) | "
+            f"疲労={self.state.fatigue:5.1f} | "
+            f"報酬={reward:+.4f} | "
+            f"CZ={self.state.comfort_zone_status} | "
+            f"記憶={self.state.short_term_memory.count}"
+        )
+
     def _display_status(self):
-        """ステータスを表示する。"""
+        """60秒ごとのステータスサマリーを表示する。"""
         s = self.state.get_status_dict()
         sleeping_str = "💤 睡眠中" if s["is_sleeping"] else "👁 覚醒中"
         cz_str = {"normal": "🟢", "alert": "🟡", "emergency": "🔴"}.get(
             s["cz_status"], "⚪"
         )
 
-        # 行動統計
-        top_actions = sorted(
+        # 行動統計（全行動）
+        all_actions = sorted(
             self.state.total_actions.items(), key=lambda x: -x[1]
-        )[:3]
-        action_str = ", ".join(f"{a}:{c}" for a, c in top_actions)
+        )
+        action_str = ", ".join(f"{a}:{c}" for a, c in all_actions)
+
+        # Q値テーブルのサイズ
+        q_states = len(self.state.action_selector.q_table)
+        q_entries = sum(
+            len(actions) for actions in self.state.action_selector.q_table.values()
+        )
 
         logger.info(
-            f"{sleeping_str} | VE={s['ve']:.1f} | 疲労={s['fatigue']:.1f} | "
-            f"CZ={cz_str} | 記憶={s['stm_count']} | "
-            f"ε={s['epsilon']:.3f} | step={s['total_steps']} | "
-            f"稼働{s['uptime_h']:.1f}h | 行動: {action_str}"
+            f"\n{'─' * 60}\n"
+            f"  {sleeping_str} | step={s['total_steps']} | 稼働{s['uptime_h']:.1f}h\n"
+            f"  VE={s['ve']:.1f} | 疲労={s['fatigue']:.1f} | CZ={cz_str} {s['cz_status']}\n"
+            f"  記憶={s['stm_count']}件 | ε={s['epsilon']:.3f} | "
+            f"Q値={q_states}状態/{q_entries}エントリ\n"
+            f"  睡眠={s['sleep_count']}回 | 行動: {action_str}\n"
+            f"{'─' * 60}"
         )
 
     def _signal_handler(self, signum, frame):
