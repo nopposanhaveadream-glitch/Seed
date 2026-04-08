@@ -8,6 +8,7 @@ Phase 1（環境1: 自分の身体だけが見える世界）では、
 身体の維持に関する最小限の8つの行動を定義する。
 """
 
+import os
 import subprocess
 import time
 from dataclasses import dataclass
