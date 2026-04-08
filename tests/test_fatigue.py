@@ -76,12 +76,12 @@ def test_fatigue_cost_multiplier():
 
 
 def test_should_force_sleep():
-    """強制睡眠の条件テスト。"""
-    # 疲労95以上 かつ VE5以下で強制
+    """強制睡眠の条件テスト。疲労95以上で強制（VE条件なし）。"""
     assert should_force_sleep(95, 4) == True
-    assert should_force_sleep(95, 10) == False  # VEが十分
+    assert should_force_sleep(95, 10) == True   # VEが高くても疲労で強制
     assert should_force_sleep(80, 3) == False    # 疲労が足りない
     assert should_force_sleep(90, 4) == False
+    assert should_force_sleep(95) == True        # VE引数省略でも動作
 
 
 def test_should_wake():

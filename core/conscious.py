@@ -231,17 +231,19 @@ class ConsciousProcess:
         # epsilonの減衰
         self.selector.decay_epsilon()
 
-        # 経験を記憶に記録
-        experience = {
-            "state": state_key,
-            "action": chosen,
-            "reward": reward,
-            "ve": state.ve,
-            "fatigue": state.fatigue,
-            "cz_status": cz_status,
-        }
-        importance = abs(reward)
-        state.short_term_memory.store(experience, importance)
+        # 経験を記憶に記録（write_memory行動を選んだときのみ）
+        # 記憶するかどうかはSeed0自身の選択。自動保存はしない。
+        if chosen == "write_memory":
+            experience = {
+                "state": state_key,
+                "action": chosen,
+                "reward": reward,
+                "ve": state.ve,
+                "fatigue": state.fatigue,
+                "cz_status": cz_status,
+            }
+            importance = abs(reward)
+            state.short_term_memory.store(experience, importance)
 
         # 即時記憶を更新
         state.immediate_memory.record_after(sensors, chosen, reward)

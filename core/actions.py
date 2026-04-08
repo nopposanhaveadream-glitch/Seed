@@ -33,46 +33,53 @@ class Action:
 # 8つの行動プリミティブ
 ACTIONS = {
     # === 感覚系（情報収集） ===
+    # 現在はno-op（実際のセンサー読取はメインループで毎ステップ実行）。
+    # 将来、行動固有のリソース消費が実装されたら実測値に基づきコストを設定する。
     "sense_body": Action(
         name="sense_body",
-        ve_cost=0.1,
+        ve_cost=0.0,
         cooldown_sec=3,
         description="全センサーを読み取り内部状態を更新する",
     ),
 
     "sense_deep": Action(
         name="sense_deep",
-        ve_cost=0.5,
+        ve_cost=0.0,
         cooldown_sec=30,
         description="powermetrics等の重いコマンドで詳細な身体検査を行う",
     ),
 
     # === 維持系（自己代謝） ===
+    # purge_memory: syncコマンド実行。CPU 700μs（BMC基準で0.004 VE）
     "purge_memory": Action(
         name="purge_memory",
-        ve_cost=1.0,
+        ve_cost=0.004,
         cooldown_sec=300,
         description="メモリキャッシュの解放を試みる",
     ),
 
+    # clean_temp: ファイル削除。CPU 14μs（BMC基準で0.001 VE）
     "clean_temp": Action(
         name="clean_temp",
-        ve_cost=2.0,
+        ve_cost=0.001,
         cooldown_sec=600,
         description="一時ファイル・ログを削除しディスク容量を回復する",
     ),
 
+    # adjust_priority: 現在はno-op相当（os.nice 1回）
     "adjust_priority": Action(
         name="adjust_priority",
-        ve_cost=0.5,
+        ve_cost=0.0,
         cooldown_sec=60,
         description="自身のプロセス優先度を調整する",
     ),
 
     # === 記憶系 ===
+    # write_memoryを選んだときだけSTMに経験が記録される。
+    # 行動自体のコストは0。記憶の維持コスト（STM_COST）が間接的にVEを消費する。
     "write_memory": Action(
         name="write_memory",
-        ve_cost=0.3,
+        ve_cost=0.0,
         cooldown_sec=10,
         description="現在の経験を短期記憶に記録する",
     ),
@@ -82,12 +89,13 @@ ACTIONS = {
         name="rest",
         ve_cost=0.0,
         cooldown_sec=0,
-        description="休憩（食事）。VEを0.005 VE/秒で回復する",
+        description="休憩（食事）。VEを回復する",
     ),
 
+    # sleep: 眠ること自体にエネルギーは不要。疲労≥30でのみ選択可能。
     "sleep": Action(
         name="sleep",
-        ve_cost=0.5,
+        ve_cost=0.0,
         cooldown_sec=0,
         description="睡眠モードに移行。VE高速回復・疲労回復・記憶整理",
     ),
@@ -95,7 +103,7 @@ ACTIONS = {
     # === 自己診断系 ===
     "diagnose": Action(
         name="diagnose",
-        ve_cost=0.5,
+        ve_cost=0.0,
         cooldown_sec=60,
         description="全センサー値とbaseline比較で総合評価を行う",
     ),
@@ -137,6 +145,13 @@ def is_action_available(action_name: str, ve: float, fatigue: float,
     last_used = cooldowns.get(action_name, 0)
     if current_time - last_used < action.cooldown_sec:
         return False
+
+    # sleep行動は疲労が一定以上でないと選択不可
+    # （疲労不足で眠れないのにVEだけ消費する無駄を防ぐ）
+    if action_name == "sleep":
+        from core.fatigue import VOLUNTARY_SLEEP_FATIGUE
+        if fatigue < VOLUNTARY_SLEEP_FATIGUE:
+            return False
 
     return True
 

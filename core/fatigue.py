@@ -128,9 +128,13 @@ def fatigue_cost_multiplier(fatigue: float) -> float:
 # 睡眠判定
 # ─────────────────────────────────────────────
 
-def should_force_sleep(fatigue: float, ve: float) -> bool:
-    """強制睡眠の条件。疲労95以上 かつ VE5以下。"""
-    return fatigue >= FORCE_SLEEP_FATIGUE and ve < FORCE_SLEEP_VE
+def should_force_sleep(fatigue: float, ve: float = None) -> bool:
+    """強制睡眠の条件。疲労95以上で強制的に睡眠に入る。
+
+    VE条件は撤廃。疲労の蓄積だけで睡眠が構造的に発生する。
+    VE引数は後方互換のために残すが使用しない。
+    """
+    return fatigue >= FORCE_SLEEP_FATIGUE
 
 
 def should_wake(fatigue: float, ve: float) -> bool:

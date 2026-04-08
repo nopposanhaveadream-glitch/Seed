@@ -129,14 +129,17 @@ class Action:
     cooldown_sec: float
 
 ACTIONS = {
-    "sense_body":       Action("sense_body", 0.1, 3),
-    "sense_deep":       Action("sense_deep", 0.5, 30),
-    "purge_memory":     Action("purge_memory", 1.0, 300),
-    "clean_temp":       Action("clean_temp", 2.0, 600),
-    "adjust_priority":  Action("adjust_priority", 0.5, 60),
-    "write_memory":     Action("write_memory", 0.3, 10),
+    # no-op行動: VEコスト0（実際のリソース消費がないため）
+    "sense_body":       Action("sense_body", 0.0, 3),
+    "sense_deep":       Action("sense_deep", 0.0, 30),
+    "adjust_priority":  Action("adjust_priority", 0.0, 60),
+    "write_memory":     Action("write_memory", 0.0, 10),
     "rest":             Action("rest", 0.0, 0),
-    "sleep":            Action("sleep", 0.5, 0),
+    "sleep":            Action("sleep", 0.0, 0),
+    "diagnose":         Action("diagnose", 0.0, 60),
+    # 実リソース消費に基づくコスト（BMC基準で導出）
+    "purge_memory":     Action("purge_memory", 0.004, 300),
+    "clean_temp":       Action("clean_temp", 0.001, 600),
 }
 
 
@@ -250,8 +253,8 @@ class SimState:
     sleep_ve_recovery_rate: float = 0.02
     sleep_bmc_fraction: float = 0.3
     sleep_fatigue_recovery_rate: float = 0.014
-    rest_ve_recovery_rate: float = 0.008  # rest行動選択時のVE回復率（VE/秒）v3修正
-    rest_bmc_fraction: float = 0.7  # rest中のBMC軽減率（v3追加）
+    rest_ve_recovery_rate: float = 0.012  # rest行動選択時のVE回復率（VE/秒）v4-A確定
+    rest_bmc_fraction: float = 0.5  # rest中のBMC軽減率（v4-A確定）
 
     # 内部
     baseline: RunningBaseline = field(default_factory=RunningBaseline)
@@ -377,8 +380,8 @@ def run_simulation(sensor_data: list, state: SimState,
             # 記憶圧縮
             state.stm.pressure_trim(state.ve)
 
-            # 強制睡眠チェック
-            if state.fatigue >= 95 and state.ve < 5 and enable_sleep:
+            # 強制睡眠チェック（疲労のみ。VE条件は撤廃）
+            if state.fatigue >= 95 and enable_sleep:
                 state.is_sleeping = True
                 state._sleep_start = state.step_count
 
@@ -402,6 +405,9 @@ def run_simulation(sensor_data: list, state: SimState,
                     continue
                 last = state.action_cooldowns.get(name, 0)
                 if now_step - last < action.cooldown_sec:
+                    continue
+                # sleep行動は疲労≥30でのみ選択可能
+                if name == "sleep" and state.fatigue < 30:
                     continue
                 available.append(name)
 
@@ -436,9 +442,10 @@ def run_simulation(sensor_data: list, state: SimState,
                 state.selector.update(st_key, chosen, reward, next_key)
                 state.selector.decay_epsilon()
 
-                # 記憶に記録
-                importance = abs(reward)
-                state.stm.store(importance, {"action": chosen, "reward": reward})
+                # 記憶はwrite_memory行動を選んだときのみ保存
+                if chosen == "write_memory":
+                    importance = abs(reward)
+                    state.stm.store(importance, {"action": chosen, "reward": reward})
 
                 state.action_log.append(chosen)
             else:
