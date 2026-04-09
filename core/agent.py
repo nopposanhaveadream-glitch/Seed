@@ -18,6 +18,7 @@ import time
 import signal
 import json
 import logging
+import datetime
 
 # プロジェクトルートをパスに追加
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -76,6 +77,7 @@ class Seed0Agent:
         self.conscious = ConsciousProcess()
         self._running = False
         self._last_status_time = 0
+        self._current_date = datetime.date.today()
 
         # 状態の復元または初期化
         if resume and self.state.load():
@@ -226,6 +228,23 @@ class Seed0Agent:
             f"  睡眠={s['sleep_count']}回 | 行動: {action_str}\n"
             f"{'─' * 60}"
         )
+
+        # 日次レポート生成（日付が変わったら前日分を出力）
+        today = datetime.date.today()
+        if today != self._current_date:
+            self._generate_daily_report(self._current_date)
+            self._current_date = today
+
+    def _generate_daily_report(self, report_date: datetime.date):
+        """日次レポートを生成する。失敗してもエージェントは停止しない。"""
+        try:
+            from core.daily_report import generate
+            target = report_date.isoformat()
+            log_path = os.path.join(LOG_DIR, "agent.log")
+            path = generate(target, log_path)
+            logger.info(f"📊 日次レポート生成完了: {path}")
+        except Exception as e:
+            logger.warning(f"日次レポート生成失敗: {e}")
 
     def _signal_handler(self, signum, frame):
         """安全な終了を行う。"""

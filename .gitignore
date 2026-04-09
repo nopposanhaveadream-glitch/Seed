@@ -38,6 +38,9 @@ exports/
 logs/
 *.log
 
+# 日次レポート（~/.seed0/reports/ に保存、各マシン固有）
+reports/
+
 # ランタイム状態（~/.seed0/ に保存、各マシン固有）
 # state/, memory/, logs/ は ~/.seed0/ 配下
 
