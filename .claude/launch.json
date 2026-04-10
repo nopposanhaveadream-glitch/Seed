@@ -1,0 +1,26 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Seed0 Agent (Phase 1)",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "core.agent", "--sudo"]
+    },
+    {
+      "name": "Seed0 Agent (Fresh Start)",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "core.agent", "--no-resume", "--sudo"]
+    },
+    {
+      "name": "Phase 0 Collector",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["phase0/collector.py", "--sudo"]
+    },
+    {
+      "name": "Seed0 Viewer",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "cd ~/.seed0/viewer && python3 -m http.server 8050"],
+      "port": 8050
+    }
+  ]
+}

@@ -78,6 +78,7 @@ class Seed0Agent:
         self._running = False
         self._last_status_time = 0
         self._current_date = datetime.date.today()
+        self._last_action = "none"  # ビューア用
 
         # 状態の復元または初期化
         if resume and self.state.load():
@@ -187,6 +188,9 @@ class Seed0Agent:
                 f"step={self.state.total_steps}"
             )
 
+        # 最新の行動を記録（ビューア用）
+        self._last_action = chosen
+
         # 毎ステップの行動ログ（INFOレベル）
         reward = self.state.immediate_memory.last_reward
         logger.info(
@@ -228,6 +232,35 @@ class Seed0Agent:
             f"  睡眠={s['sleep_count']}回 | 行動: {action_str}\n"
             f"{'─' * 60}"
         )
+
+        # ステータスJSON書き出し（ビューア用、atomic write）
+        try:
+            status_data = {
+                "timestamp": time.time(),
+                "display": {
+                    "ve": round(s["ve"], 1),
+                    "fatigue": round(s["fatigue"], 1),
+                    "is_sleeping": s["is_sleeping"],
+                    "cz_status": s["cz_status"],
+                },
+                "stats": {
+                    "memory_count": s["stm_count"],
+                    "q_states": q_states,
+                    "q_entries": q_entries,
+                    "epsilon": round(s["epsilon"], 4),
+                    "total_steps": s["total_steps"],
+                    "current_action": self._last_action,
+                    "sleep_count": s["sleep_count"],
+                    "uptime_hours": round(s["uptime_h"], 1),
+                },
+            }
+            status_path = os.path.expanduser("~/.seed0/status.json")
+            tmp_path = status_path + ".tmp"
+            with open(tmp_path, "w") as f:
+                json.dump(status_data, f)
+            os.replace(tmp_path, status_path)
+        except Exception:
+            pass  # ビューアのためにエージェントを止めない
 
         # 日次レポート生成（日付が変わったら前日分を出力）
         today = datetime.date.today()
