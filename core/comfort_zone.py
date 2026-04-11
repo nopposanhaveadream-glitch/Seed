@@ -25,8 +25,9 @@ STATUS_NORMAL = "normal"
 STATUS_ALERT = "alert"
 STATUS_EMERGENCY = "emergency"
 
-# 追跡するセンサーキー
-TRACKED_KEYS = [
+# Cold Start時に初期値を持つセンサーキー（Phase 0 実測データに基づく）
+# 新しいセンサーキーは初回データから自動的にbaselineに取り込まれる
+COLD_START_KEYS = [
     "memory_pressure_percent",
     "cpu_usage_percent",
     "disk_usage_percent",
@@ -79,6 +80,7 @@ class RunningBaseline:
         """
         Phase 0のデータベースから直接統計値を計算して初期化する。
         データベースが存在しない場合はハードコードされた初期値を使う。
+        新しいセンサー（Phase 0にないもの）は初回データから自動的に学習開始する。
         """
         db_path = os.path.expanduser(db_path)
         if not os.path.exists(db_path):
@@ -88,7 +90,7 @@ class RunningBaseline:
         try:
             conn = sqlite3.connect(db_path)
             cur = conn.cursor()
-            for key in TRACKED_KEYS:
+            for key in COLD_START_KEYS:
                 cur.execute(f"""
                     SELECT AVG({key}), AVG(({key} - sub.m) * ({key} - sub.m))
                     FROM body_sensor_readings,
@@ -127,9 +129,12 @@ class RunningBaseline:
         self.variances[key] = new_var
 
     def update_from_sensors(self, sensors: dict):
-        """センサー辞書の全キーをまとめて更新する。"""
-        for key in TRACKED_KEYS:
-            val = sensors.get(key)
+        """
+        センサー辞書の全数値キーをまとめて更新する。
+        新しいセンサーキーが来ても自動的にbaselineに取り込む。
+        どのセンサーを追跡するかをハードコードしない（第一原則）。
+        """
+        for key, val in sensors.items():
             if val is not None and isinstance(val, (int, float)):
                 self.update(key, val)
 
@@ -181,12 +186,12 @@ class RunningBaseline:
 def evaluate_comfort_zone(baseline: RunningBaseline, sensors: dict) -> str:
     """
     全センサー値のdeviation_scoreの最大値に基づいて状態を判定する。
+    baselineが追跡している全キーを評価対象にする。
 
     returns: "normal" | "alert" | "emergency"
     """
     max_deviation = 0.0
-    for key in TRACKED_KEYS:
-        val = sensors.get(key)
+    for key, val in sensors.items():
         if val is not None and isinstance(val, (int, float)):
             score = baseline.deviation_score(key, val)
             max_deviation = max(max_deviation, score)

@@ -87,6 +87,17 @@ def read_memory() -> dict:
         if match:
             data["memory_pressure_percent"] = 100 - int(match.group(1))
 
+    # メモリ圧縮率（圧縮されたメモリの総メモリに対する比率）
+    if "memory_compressed_mb" in data:
+        total_output = _run("sysctl hw.memsize")
+        if total_output:
+            match = re.search(r"hw\.memsize:\s+(\d+)", total_output)
+            if match:
+                total_mb = int(match.group(1)) / (1024 * 1024)
+                data["memory_compressed_percent"] = round(
+                    data["memory_compressed_mb"] / total_mb * 100, 2
+                )
+
     return data
 
 
@@ -166,20 +177,31 @@ def read_disk() -> dict:
                 if total_mb > 0:
                     data["disk_usage_percent"] = round(used_mb / total_mb * 100, 1)
 
-    # ディスクI/O（iostatから累積値を取得し、前回との差分でレートを計算）
-    io_output = _run("iostat -d -c 1 -w 1")
+    # ディスクI/O（ioregから累積バイト数を取得し、前回との差分でレートを計算）
+    io_output = _run("ioreg -c IOBlockStorageDriver -r -d 1")
     if io_output:
-        lines = io_output.strip().split("\n")
-        # iostatのヘッダ行をスキップし、最後の行（最新サンプル）を使う
-        for line in reversed(lines):
-            parts = line.split()
-            if len(parts) >= 3:
-                try:
-                    # KB/t, tps, MB/s の形式
-                    data["disk_read_mb_s"] = float(parts[2])  # disk0のMB/s
-                    break
-                except ValueError:
-                    continue
+        read_match = re.search(r'"Bytes \(Read\)"=(\d+)', io_output)
+        write_match = re.search(r'"Bytes \(Write\)"=(\d+)', io_output)
+        now = time.time()
+
+        if read_match and write_match:
+            read_bytes = int(read_match.group(1))
+            write_bytes = int(write_match.group(1))
+
+            # 前回の値がある場合、差分からレートを計算
+            if _prev_disk_io["timestamp"] is not None:
+                dt = now - _prev_disk_io["timestamp"]
+                if dt > 0:
+                    data["disk_read_mb_s"] = round(
+                        (read_bytes - _prev_disk_io["read_bytes"]) / dt / (1024 * 1024), 3
+                    )
+                    data["disk_write_mb_s"] = round(
+                        (write_bytes - _prev_disk_io["write_bytes"]) / dt / (1024 * 1024), 3
+                    )
+
+            _prev_disk_io["read_bytes"] = read_bytes
+            _prev_disk_io["write_bytes"] = write_bytes
+            _prev_disk_io["timestamp"] = now
 
     return data
 
@@ -270,6 +292,83 @@ def read_processes() -> dict:
 
 
 # ─────────────────────────────────────────────
+# バックグラウンドプロセス活動
+# ─────────────────────────────────────────────
+
+def read_background_activity() -> dict:
+    """
+    macOSの主要なバックグラウンドプロセスのCPU消費を取得する。
+    Seed0にとっては「内臓の活動量」。
+
+    対象: Spotlight(mds), iCloud(bird/cloudd), Time Machine(backupd),
+          バックグラウンド通信(nsurlsessiond), 画面描画(WindowServer)
+
+    返すキー:
+      background_cpu_percent — 対象プロセスのCPU使用率合計
+    """
+    data = {}
+
+    # ps で対象プロセスのCPU%を取得し合計する
+    output = _run(
+        "ps -eo comm,%cpu"
+    )
+    if output:
+        # 対象プロセス名（部分一致で検索）
+        targets = [
+            "mds_stores", "mds", "mdworker",  # Spotlight
+            "backupd",                          # Time Machine
+            "bird", "cloudd",                   # iCloud
+            "nsurlsessiond",                    # バックグラウンド通信
+            "WindowServer",                     # 画面描画
+        ]
+        total_cpu = 0.0
+        for line in output.strip().split("\n"):
+            parts = line.strip().rsplit(None, 1)
+            if len(parts) == 2:
+                comm = parts[0].strip()
+                try:
+                    cpu_val = float(parts[1])
+                except ValueError:
+                    continue
+                # プロセス名がいずれかのターゲットに一致するか
+                for target in targets:
+                    if target in comm:
+                        total_cpu += cpu_val
+                        break
+        data["background_cpu_percent"] = round(total_cpu, 2)
+
+    return data
+
+
+# ─────────────────────────────────────────────
+# ユーザーアイドル時間
+# ─────────────────────────────────────────────
+
+def read_user_idle() -> dict:
+    """
+    キーボード/マウスの最終操作からの経過秒数を取得する。
+    ioregのHIDIdleTime（ナノ秒単位）を秒に変換して返す。
+
+    生の秒数をそのまま渡す。「いる/いない」の離散化はしない。
+    意味づけはSeed0がbaseline学習で自分で発見する。
+
+    返すキー:
+      user_idle_seconds — 最終入力からの経過秒数
+    """
+    data = {}
+
+    output = _run("ioreg -c IOHIDSystem | grep HIDIdleTime")
+    if output:
+        match = re.search(r'"HIDIdleTime"\s*=\s*(\d+)', output)
+        if match:
+            # ナノ秒 → 秒に変換
+            idle_ns = int(match.group(1))
+            data["user_idle_seconds"] = round(idle_ns / 1_000_000_000, 1)
+
+    return data
+
+
+# ─────────────────────────────────────────────
 # 電力・温度情報（powermetrics — sudo必要）
 # ─────────────────────────────────────────────
 
@@ -335,12 +434,14 @@ def read_all_sensors(use_sudo: bool = False) -> dict:
     取得できなかった値はキーごと省略される（NULLとしてDBに記録される）。
     """
     data = {}
-    data.update(read_memory())
-    data.update(read_cpu())
-    data.update(read_disk())
-    data.update(read_network())
-    data.update(read_processes())
-    data.update(read_power_thermal(use_sudo=use_sudo))
+    data.update(read_memory())             # メモリ + 圧縮率
+    data.update(read_cpu())                # CPU + ロードアベレージ
+    data.update(read_disk())               # ディスク容量 + I/O（read/write）
+    data.update(read_network())            # ネットワーク送受信
+    data.update(read_processes())          # プロセス数 + 稼働時間
+    data.update(read_background_activity())  # バックグラウンドプロセスCPU
+    data.update(read_user_idle())            # ユーザーアイドル時間
+    data.update(read_power_thermal(use_sudo=use_sudo))  # 電力・温度（sudo時のみ）
     return data
 
 
