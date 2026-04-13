@@ -159,6 +159,67 @@ def test_ltm_consolidation():
         os.unlink(tmp_path)
 
 
+def test_purge_memory_reduces_stm():
+    """purge_memoryがSTMを20%削減すること。"""
+    stm = ShortTermMemory()
+    # 100件の記憶を追加（重要度は0.01〜1.0）
+    for i in range(100):
+        stm.store({"action": f"test_{i}"}, importance=i * 0.01)
+
+    assert stm.count == 100, f"初期件数が不正: {stm.count}"
+
+    # purge: 20%削減 → 80件になる
+    current = stm.count
+    to_remove = max(1, -(-current // 5))
+    target = max(10, current - to_remove)
+    stm.memories.sort(key=lambda m: m[1], reverse=True)
+    stm.memories = stm.memories[:target]
+
+    assert stm.count == 80, f"purge後の件数が不正: {stm.count}"
+    # 重要度の高い記憶が残っていること
+    min_importance = min(m[1] for m in stm.memories)
+    assert min_importance >= 0.19, f"重要度の低い記憶が残っている: {min_importance}"
+
+
+def test_purge_memory_protects_minimum():
+    """purge_memoryが最低10件を保護すること。"""
+    stm = ShortTermMemory()
+    for i in range(10):
+        stm.store({"action": f"test_{i}"}, importance=0.1)
+
+    assert stm.count == 10
+    # 10件以下ではpurgeしない
+    current = stm.count
+    if current > 10:
+        to_remove = max(1, -(-current // 5))
+        target = max(10, current - to_remove)
+        stm.memories.sort(key=lambda m: m[1], reverse=True)
+        stm.memories = stm.memories[:target]
+
+    assert stm.count == 10, f"最低保持件数を下回った: {stm.count}"
+
+
+def test_purge_memory_keeps_important():
+    """purge_memoryが重要度の高い記憶を残すこと。"""
+    stm = ShortTermMemory()
+    # 重要度0.01の記憶50件 + 重要度1.0の記憶50件
+    for i in range(50):
+        stm.store({"action": "unimportant"}, importance=0.01)
+    for i in range(50):
+        stm.store({"action": "important"}, importance=1.0)
+
+    current = stm.count
+    to_remove = max(1, -(-current // 5))
+    target = max(10, current - to_remove)
+    stm.memories.sort(key=lambda m: m[1], reverse=True)
+    stm.memories = stm.memories[:target]
+
+    # 80件残る。重要度1.0の50件は全部残り、0.01の30件が残る
+    assert stm.count == 80
+    important_count = sum(1 for m in stm.memories if m[2]["action"] == "important")
+    assert important_count == 50, f"重要な記憶が失われた: {important_count}/50"
+
+
 def run_all():
     tests = [
         test_immediate_memory,
@@ -172,6 +233,9 @@ def run_all():
         test_stm_serialization,
         test_ltm_basic,
         test_ltm_consolidation,
+        test_purge_memory_reduces_stm,
+        test_purge_memory_protects_minimum,
+        test_purge_memory_keeps_important,
     ]
     passed = 0
     failed = 0

@@ -50,12 +50,13 @@ ACTIONS = {
     ),
 
     # === 維持系（自己代謝） ===
-    # purge_memory: syncコマンド実行。CPU 700μs（BMC基準で0.004 VE）
+    # purge_memory: 短期記憶を整理する（重要度の低いものから20%削減）
+    # 「忘れる」手段を構造として与える。使うかどうかはSeed0が決める。
     "purge_memory": Action(
         name="purge_memory",
         ve_cost=0.004,
-        cooldown_sec=300,
-        description="メモリキャッシュの解放を試みる",
+        cooldown_sec=60,
+        description="短期記憶を整理する。重要度の低い記憶から20%を削減する",
     ),
 
     # clean_temp: ファイル削除。CPU 14μs（BMC基準で0.001 VE）
@@ -200,9 +201,8 @@ def execute_action(action_name: str) -> dict:
         return {"success": True, "effect": "詳細センサー読取を実行"}
 
     elif action_name == "purge_memory":
-        # macOSのメモリキャッシュ解放（sudoなしでは限定的）
-        result = _run_cmd("sync")
-        return {"success": result is not None, "effect": "メモリキャッシュ解放を試行"}
+        # STMの記憶削減は呼び出し元（conscious.py）が処理する
+        return {"success": True, "effect": "短期記憶を整理"}
 
     elif action_name == "clean_temp":
         # Seed0自身が作った一時ファイルの削除

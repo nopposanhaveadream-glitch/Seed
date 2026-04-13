@@ -215,6 +215,17 @@ class ConsciousProcess:
         if chosen == "sleep" and fatigue.can_voluntary_sleep(state.fatigue):
             state.fall_asleep()
 
+        # purge_memory行動の処理: STMの記憶を重要度の低い順に20%削減
+        # 「忘れる」手段を構造として与える。使うかどうかはSeed0が決める。
+        if chosen == "purge_memory":
+            stm = state.short_term_memory
+            current = stm.count
+            if current > 10:  # 最低10件は保護
+                to_remove = max(1, -(-current // 5))  # ceil(count / 5)
+                target = max(10, current - to_remove)
+                stm.memories.sort(key=lambda m: m[1], reverse=True)
+                stm.memories = stm.memories[:target]
+
         # 報酬計算とQ学習更新
         if next_sensors:
             reward = calculate_reward(
