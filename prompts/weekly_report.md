@@ -16,7 +16,7 @@
 - 記憶件数（STM / LTM / 合計 / 最大値 / 最小値）
 - VE=0比率（日別・全期間平均）
 - 活動率（行動している時間 / 全時間）
-- 行動比率（**全8行動の選択回数と割合を必ず全て記載**: sense_body, sense_deep, purge_memory, clean_temp, adjust_priority, write_memory, rest, sleep, diagnose。回数0でも省略せず0と記載）
+- 行動比率（**全9行動の選択回数と割合を必ず全て記載**: sense_body, sense_deep, purge_memory, clean_temp, adjust_priority, write_memory, rest, sleep, diagnose。回数0でも省略せず0と記載）
 - 睡眠の詳細: sleep行動経由の入眠回数 / 強制睡眠(疲労≥95)経由の入眠回数 / 平均睡眠時間 / 平均入眠時VE / 平均起床時VE
 
 ### 2. Q値時系列（今回の重点観察項目）
