@@ -19,6 +19,7 @@ import signal
 import json
 import logging
 import datetime
+import atexit
 
 # プロジェクトルートをパスに追加
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -45,6 +46,9 @@ STATUS_DISPLAY_INTERVAL = 60
 LOG_DIR = os.path.expanduser("~/.seed0/logs")
 os.makedirs(LOG_DIR, exist_ok=True)
 
+# PIDファイル（二重起動防止）
+PID_FILE = os.path.expanduser("~/.seed0/agent.pid")
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
@@ -57,6 +61,61 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger("seed0")
+
+
+# ─────────────────────────────────────────────
+# プロセス重複防止（PIDファイル）
+# ─────────────────────────────────────────────
+
+def ensure_single_instance(pid_path: str = PID_FILE) -> bool:
+    """
+    PIDファイルで二重起動を防止する。
+
+    - PIDファイルが存在し、そのPIDのプロセスが動作中 → False（起動拒否）
+    - PIDファイルが存在するが、プロセスが死んでいる → 警告を出して削除、True
+    - PIDファイルが存在しない → True
+
+    Trueの場合、自プロセスのPIDを書き込む。
+    """
+    os.makedirs(os.path.dirname(pid_path), exist_ok=True)
+
+    if os.path.exists(pid_path):
+        try:
+            with open(pid_path, "r") as f:
+                old_pid = int(f.read().strip())
+            # プロセスが生存しているか確認
+            os.kill(old_pid, 0)
+            # 生存している → 起動拒否
+            logger.error(
+                f"Seed0は既に動作中です（PID {old_pid}）。"
+                f"二重起動を防止しました。"
+            )
+            return False
+        except (ProcessLookupError, PermissionError):
+            # プロセスが存在しない → 古いPIDファイルを削除
+            logger.warning(
+                f"古いPIDファイルを検出（PID {old_pid}、既に停止済み）。削除して続行します。"
+            )
+            os.remove(pid_path)
+        except (ValueError, IOError):
+            # PIDファイルが壊れている → 削除して続行
+            logger.warning("PIDファイルが破損しています。削除して続行します。")
+            os.remove(pid_path)
+
+    # 自プロセスのPIDを書き込む
+    with open(pid_path, "w") as f:
+        f.write(str(os.getpid()))
+
+    return True
+
+
+def remove_pid_file(pid_path: str = PID_FILE):
+    """PIDファイルを削除する。失敗しても例外を投げない。"""
+    try:
+        if os.path.exists(pid_path):
+            os.remove(pid_path)
+    except Exception as e:
+        logger.warning(f"PIDファイルの削除に失敗: {e}")
 
 
 # ─────────────────────────────────────────────
@@ -94,6 +153,12 @@ class Seed0Agent:
 
     def run(self):
         """メインループを開始する。"""
+        # 二重起動防止チェック
+        if not ensure_single_instance():
+            sys.exit(1)
+        # 異常終了時にもPIDファイルを削除する
+        atexit.register(remove_pid_file)
+
         self._running = True
         logger.info("=" * 50)
         logger.info("Seed0 Phase 1 起動")
@@ -301,6 +366,9 @@ class Seed0Agent:
         # 長期記憶を閉じる
         self.state.long_term_memory.close()
         logger.info("  長期記憶を閉じました")
+
+        # PIDファイルを削除
+        remove_pid_file()
 
         logger.info("Seed0 Phase 1 終了")
 
