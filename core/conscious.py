@@ -40,6 +40,10 @@ class ActionSelector:
         self.epsilon_min = epsilon_min
         self.epsilon_decay = epsilon_decay
         self.q_table = {}
+        # ── ロギング用副作用フィールド（決定ロジックには影響しない） ──
+        # select_action呼出ごとに探索/活用のいずれの分岐を通ったかを記録する。
+        # True=探索（random分岐）、False=活用（argmax分岐）、None=available空でデフォルトrest
+        self.last_was_explore = None
 
     def discretize_state(self, ve: float, fat: float,
                           cz_status: str, sensors: dict) -> str:
@@ -67,10 +71,12 @@ class ActionSelector:
     def select_action(self, state: str, available: list) -> str:
         """epsilon-greedy方策で行動を選択する。"""
         if not available:
+            self.last_was_explore = None
             return "rest"
 
         # 探索: ランダム
         if random.random() < self.epsilon:
+            self.last_was_explore = True
             return random.choice(available)
 
         # 活用: Q値最大の行動
@@ -85,6 +91,7 @@ class ActionSelector:
                 best_q = q
                 best_action = action
 
+        self.last_was_explore = False
         return best_action if best_action else random.choice(available)
 
     def update(self, state: str, action: str, reward: float, next_state: str):
@@ -160,6 +167,10 @@ class ConsciousProcess:
 
     def __init__(self):
         self.selector = ActionSelector()
+        # ── ロギング用副作用フィールド（決定ロジックには影響しない） ──
+        # think_and_act呼出ごとに、agent.pyがstep_trace.jsonlへ書き出すための
+        # 決定時情報を蓄積する。書込側はこのdictをコピーして使用する。
+        self.last_step_trace = {}
 
     def think_and_act(self, state, sensors: dict, next_sensors: dict,
                        dt: float) -> str:
@@ -173,6 +184,22 @@ class ConsciousProcess:
 
         returns: 選択された行動名
         """
+        # ── ステップトレースをデフォルト値で初期化（睡眠/blockedで早期returnしてもこの値が読まれる） ──
+        # 後段で行動選択が成立した場合のみ、決定時の値で上書きする。
+        self.last_step_trace = {
+            "state_key": None,
+            "state_components": None,
+            "sensors_raw": {
+                "memory_pressure_percent": sensors.get("memory_pressure_percent"),
+                "cpu_usage_percent": sensors.get("cpu_usage_percent"),
+            },
+            "exploration": None,
+            "epsilon": self.selector.epsilon,
+            "q_values": None,
+            "chosen_q_value": None,
+            "available_actions": None,
+        }
+
         # 睡眠中は行動選択しない
         if state.is_sleeping:
             return "sleeping"
@@ -195,6 +222,43 @@ class ConsciousProcess:
 
         # 行動選択
         chosen = self.selector.select_action(state_key, available)
+
+        # ── 決定時のQ値スナップショット（更新前の値を記録） ──
+        # update()でq_table[state_key][chosen]が書き換わる前に、全9行動分のQ値を吸い出す。
+        # 当該stateのq_tableに登録されていない行動はnullで明示する。
+        state_q = self.selector.q_table.get(state_key, {})
+        q_values_full = {
+            a: (round(state_q[a], 6) if a in state_q else None)
+            for a in ACTIONS.keys()
+        }
+        # state_keyの分解（discretize_state出力フォーマット: ve_l_f_l_cz_mem_l_cpu_l）
+        parts = state_key.split("_")
+        state_components = (
+            {
+                "ve_l": parts[0],
+                "f_l": parts[1],
+                "cz_status": parts[2],
+                "mem_l": parts[3],
+                "cpu_l": parts[4],
+            }
+            if len(parts) == 5 else None
+        )
+        # 探索/活用の分岐（select_actionが副作用フィールドに記録済み）
+        if self.selector.last_was_explore is True:
+            exploration = "explore"
+        elif self.selector.last_was_explore is False:
+            exploration = "exploit"
+        else:
+            exploration = None
+
+        self.last_step_trace.update({
+            "state_key": state_key,
+            "state_components": state_components,
+            "exploration": exploration,
+            "q_values": q_values_full,
+            "chosen_q_value": q_values_full.get(chosen),
+            "available_actions": list(available),
+        })
 
         # 行動のVEコストを消費
         eff_cost = get_effective_cost(chosen, state.fatigue)

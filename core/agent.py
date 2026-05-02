@@ -138,6 +138,11 @@ class Seed0Agent:
         self._last_status_time = 0
         self._current_date = datetime.date.today()
         self._last_action = "none"  # ビューア用
+        # ── 構造化ステップトレース（step_trace.jsonl）用 ──
+        # 既存agent.logと併走する分析向けログ。1ステップ=1行JSON。
+        self._step_trace_path = os.path.join(LOG_DIR, "step_trace.jsonl")
+        self._step_trace_file = None  # run()内で開く
+        self._prev_step_ve = None     # 前ステップ終了時VE（interstepΔ計算用）
 
         # 状態の復元または初期化
         if resume and self.state.load():
@@ -158,6 +163,16 @@ class Seed0Agent:
             sys.exit(1)
         # 異常終了時にもPIDファイルを削除する
         atexit.register(remove_pid_file)
+
+        # ── 構造化ステップトレースの出力ファイルを開く（追記、行バッファ） ──
+        # 失敗してもエージェントは止めない（既存agent.log側は別ハンドラで稼働継続）
+        try:
+            self._step_trace_file = open(
+                self._step_trace_path, "a", encoding="utf-8", buffering=1
+            )
+        except Exception as e:
+            logger.warning(f"step_trace.jsonl を開けません: {e}")
+            self._step_trace_file = None
 
         self._running = True
         logger.info("=" * 50)
@@ -268,6 +283,56 @@ class Seed0Agent:
             f"記憶={self.state.short_term_memory.count}"
         )
 
+        # ── 構造化ステップトレース（step_trace.jsonl） ──
+        # 既存agent.logとは別ファイルに、決定時の全情報を1行JSONで追記する。
+        # 失敗してもエージェントを止めない。
+        self._write_step_trace(chosen, ve_before, ve_after, reward)
+        # 次回ステップのinterstepΔ計算のため、ステップ末VEを保存
+        self._prev_step_ve = ve_after
+
+    def _write_step_trace(self, chosen: str, ve_before: float,
+                           ve_after: float, reward: float):
+        """構造化ステップトレースを step_trace.jsonl に1行追記する。"""
+        if self._step_trace_file is None:
+            return
+
+        decision = self.conscious.last_step_trace
+        eps = decision.get("epsilon")
+
+        trace = {
+            "ts": datetime.datetime.now().isoformat(timespec="seconds"),
+            "step": self.state.total_steps,
+            "action": chosen,
+            "ve": round(ve_after, 4),
+            "fatigue": round(self.state.fatigue, 4),
+            "ve_before": round(ve_before, 4),
+            "ve_after": round(ve_after, 4),
+            "ve_delta_step": round(ve_after - ve_before, 4),
+            "ve_delta_interstep": (
+                round(ve_after - self._prev_step_ve, 4)
+                if self._prev_step_ve is not None else None
+            ),
+            "reward": round(reward, 6) if reward is not None else None,
+            "memory_count": self.state.short_term_memory.count,
+            "cz_status": self.state.comfort_zone_status,
+            "state_key": decision.get("state_key"),
+            "state_components": decision.get("state_components"),
+            "sensors_raw": decision.get("sensors_raw"),
+            "exploration": decision.get("exploration"),
+            "epsilon": round(eps, 6) if eps is not None else None,
+            "q_values": decision.get("q_values"),
+            "chosen_q_value": decision.get("chosen_q_value"),
+            "available_actions": decision.get("available_actions"),
+        }
+
+        try:
+            self._step_trace_file.write(
+                json.dumps(trace, ensure_ascii=False) + "\n"
+            )
+        except Exception as e:
+            # トレース失敗でエージェントは止めない
+            logger.warning(f"step_trace書込失敗: {e}")
+
     def _display_status(self):
         """60秒ごとのステータスサマリーを表示する。"""
         s = self.state.get_status_dict()
@@ -366,6 +431,15 @@ class Seed0Agent:
         # 長期記憶を閉じる
         self.state.long_term_memory.close()
         logger.info("  長期記憶を閉じました")
+
+        # 構造化ステップトレースのファイルを閉じる
+        if self._step_trace_file is not None:
+            try:
+                self._step_trace_file.close()
+                logger.info("  step_trace.jsonl を閉じました")
+            except Exception as e:
+                logger.warning(f"step_trace.jsonl close失敗: {e}")
+            self._step_trace_file = None
 
         # PIDファイルを削除
         remove_pid_file()
