@@ -174,8 +174,10 @@ def get_available_actions(ve: float, fatigue: float,
 def _run_cmd(cmd: str, timeout: int = 10) -> Optional[str]:
     """シェルコマンドを実行して結果を返す。失敗時はNone。"""
     try:
+        # close_fds=True でPIDロックfd等の継承を防ぐ（Python 3.7+のデフォルトだが明示）
         result = subprocess.run(
-            cmd, shell=True, capture_output=True, text=True, timeout=timeout
+            cmd, shell=True, capture_output=True, text=True, timeout=timeout,
+            close_fds=True
         )
         return result.stdout if result.returncode == 0 else None
     except Exception:

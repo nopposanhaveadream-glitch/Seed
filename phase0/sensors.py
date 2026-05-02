@@ -19,8 +19,10 @@ from typing import Optional
 def _run(cmd: str, timeout: int = 5) -> Optional[str]:
     """シェルコマンドを実行し、標準出力を返す。失敗時はNoneを返す。"""
     try:
+        # close_fds=True でPIDロックfd等の継承を防ぐ（Python 3.7+のデフォルトだが明示）
         result = subprocess.run(
-            cmd, shell=True, capture_output=True, text=True, timeout=timeout
+            cmd, shell=True, capture_output=True, text=True, timeout=timeout,
+            close_fds=True
         )
         return result.stdout if result.returncode == 0 else None
     except (subprocess.TimeoutExpired, Exception):

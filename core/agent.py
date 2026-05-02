@@ -20,6 +20,7 @@ import json
 import logging
 import datetime
 import atexit
+import fcntl
 
 # プロジェクトルートをパスに追加
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -64,58 +65,116 @@ logger = logging.getLogger("seed0")
 
 
 # ─────────────────────────────────────────────
-# プロセス重複防止（PIDファイル）
+# プロセス重複防止（PIDファイル + flock）
 # ─────────────────────────────────────────────
+#
+# 二重起動防止は `fcntl.flock(LOCK_EX | LOCK_NB)` を ~/.seed0/agent.pid に
+# 対して取得する方式を採用している。
+#
+# flock を採用する理由（事実確認に基づく）:
+#   - kernel が fd 解放時に自動的にロックを解放する
+#     → SIGKILL / segfault / 電源断でも残留しない（POSIX flock(2) 仕様）
+#   - ロックの取得自体が原子的（TOCTOU の解消）
+#   - PID 値の照合が不要（生存中のプロセスがロックを保持しているため、
+#     PID 再利用問題は構造的に発生しない）
+#
+# 詳細は以下のレポートを参照:
+#   - ~/.seed0/reports/pid_bypass_investigation_2026-05-02.md
+#   - ~/.seed0/reports/flock_failure_mode_analysis_2026-05-02.md
+#
+# 注意: PID ファイルへの書き込みは ftruncate + write で行う。
+# atomic rename（tempfile + os.rename）は使わない。flock は inode に紐付くため、
+# rename で別 inode に置換するとロックが path から外れて、別プロセスから
+# 取得可能になってしまう（実測で確認済み、上記レポート C-3 関連）。
 
-def ensure_single_instance(pid_path: str = PID_FILE) -> bool:
+
+def acquire_pid_lock(pid_path: str = PID_FILE):
     """
-    PIDファイルで二重起動を防止する。
+    PIDファイルに排他ロック（flock LOCK_EX | LOCK_NB）を取得する。
 
-    - PIDファイルが存在し、そのPIDのプロセスが動作中 → False（起動拒否）
-    - PIDファイルが存在するが、プロセスが死んでいる → 警告を出して削除、True
-    - PIDファイルが存在しない → True
+    返り値:
+      - 成功時: ロック保持中のファイルディスクリプタ（int）。**呼出側は
+        プロセス寿命の間このfdを保持し続ける必要がある**。close すると
+        flock が解放されて二重起動防止が無効になる。
+      - 失敗時（既に他プロセスがロック保持）: None
 
-    Trueの場合、自プロセスのPIDを書き込む。
+    挙動:
+      - O_CREAT | O_RDWR でPIDファイルを open
+      - flock(LOCK_EX | LOCK_NB) を試行
+      - 取得失敗（BlockingIOError / OSError EWOULDBLOCK） → fdをcloseして
+        None を返す（既存PIDも情報目的で読み出しログに含める）
+      - 取得成功 → ftruncate(0) + write で現プロセスのPIDを書き込み、
+        FD_CLOEXEC を設定（subprocess経由でのfd漏洩を防ぐ）、fdを返す
     """
     os.makedirs(os.path.dirname(pid_path), exist_ok=True)
 
-    if os.path.exists(pid_path):
+    fd = os.open(pid_path, os.O_CREAT | os.O_RDWR, 0o644)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except (BlockingIOError, OSError):
+        # ロック取得失敗 → 他プロセスが保持中
+        # 既存PID値を情報目的で読み出す（ロック判定には使わない）
         try:
             with open(pid_path, "r") as f:
-                old_pid = int(f.read().strip())
-            # プロセスが生存しているか確認
-            os.kill(old_pid, 0)
-            # 生存している → 起動拒否
-            logger.error(
-                f"Seed0は既に動作中です（PID {old_pid}）。"
-                f"二重起動を防止しました。"
-            )
-            return False
-        except (ProcessLookupError, PermissionError):
-            # プロセスが存在しない → 古いPIDファイルを削除
-            logger.warning(
-                f"古いPIDファイルを検出（PID {old_pid}、既に停止済み）。削除して続行します。"
-            )
-            os.remove(pid_path)
-        except (ValueError, IOError):
-            # PIDファイルが壊れている → 削除して続行
-            logger.warning("PIDファイルが破損しています。削除して続行します。")
-            os.remove(pid_path)
+                old_pid_str = f.read().strip() or "?"
+        except Exception:
+            old_pid_str = "?"
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+        logger.error(
+            f"Seed0は既に動作中です（PID {old_pid_str}）。"
+            f"二重起動を防止しました。"
+        )
+        return None
 
-    # 自プロセスのPIDを書き込む
-    with open(pid_path, "w") as f:
-        f.write(str(os.getpid()))
+    # ロック取得成功 → FD_CLOEXEC を立てて、fork+exec した子に漏れないようにする
+    try:
+        flags = fcntl.fcntl(fd, fcntl.F_GETFD)
+        fcntl.fcntl(fd, fcntl.F_SETFD, flags | fcntl.FD_CLOEXEC)
+    except OSError as e:
+        logger.warning(f"FD_CLOEXEC設定失敗: {e}")
 
-    return True
+    # PIDをファイルに書き込む（ftruncate + write、rename は使わない）
+    try:
+        os.ftruncate(fd, 0)
+        os.lseek(fd, 0, os.SEEK_SET)
+        os.write(fd, f"{os.getpid()}\n".encode("utf-8"))
+    except OSError as e:
+        logger.warning(f"PID書き込み失敗（ロックは取得済み）: {e}")
+
+    return fd
 
 
-def remove_pid_file(pid_path: str = PID_FILE):
-    """PIDファイルを削除する。失敗しても例外を投げない。"""
+def release_pid_lock(fd, pid_path: str = PID_FILE):
+    """
+    PIDロックを明示的に解放してファイルを削除する。冪等。
+
+    fd: acquire_pid_lock() が返した値（None も許容）
+    pid_path: PIDファイルのパス
+
+    SIGKILL / 電源断などの異常終了経路では、kernel がfdを自動close
+    することで flock を解放するため、本関数を呼べなくても二重起動防止
+    の安全性は保たれる。本関数は正常終了経路での明示的な解放と、
+    PIDファイルの削除のために使う。
+    """
+    if fd is not None and isinstance(fd, int) and fd >= 0:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+        except OSError:
+            # 既に解放済み or fd 無効。kernelが解放するので問題なし
+            pass
+        try:
+            os.close(fd)
+        except OSError:
+            # 既に close 済み
+            pass
     try:
         if os.path.exists(pid_path):
             os.remove(pid_path)
-    except Exception as e:
-        logger.warning(f"PIDファイルの削除に失敗: {e}")
+    except OSError as e:
+        logger.warning(f"PIDファイル削除失敗: {e}")
 
 
 # ─────────────────────────────────────────────
@@ -144,6 +203,11 @@ class Seed0Agent:
         self._step_trace_file = None  # run()内で開く
         self._prev_step_ve = None     # 前ステップ終了時VE（interstepΔ計算用）
 
+        # ── 二重起動防止のflockロック保持用 ──
+        # acquire_pid_lock() が返したfdを保持。プロセス寿命の間 close しない。
+        self._pid_lock_fd = None
+        self._pid_released = False  # release_pid_lock呼出を冪等にするためのフラグ
+
         # 状態の復元または初期化
         if resume and self.state.load():
             logger.info("前回の状態から復帰しました")
@@ -158,11 +222,12 @@ class Seed0Agent:
 
     def run(self):
         """メインループを開始する。"""
-        # 二重起動防止チェック
-        if not ensure_single_instance():
+        # 二重起動防止チェック（flockベース）
+        self._pid_lock_fd = acquire_pid_lock()
+        if self._pid_lock_fd is None:
             sys.exit(1)
-        # 異常終了時にもPIDファイルを削除する
-        atexit.register(remove_pid_file)
+        # 異常終了時にもPIDファイルを削除する（fdは kernel が自動close → flock解放）
+        atexit.register(self._release_pid_lock_idempotent)
 
         # ── 構造化ステップトレースの出力ファイルを開く（追記、行バッファ） ──
         # 失敗してもエージェントは止めない（既存agent.log側は別ハンドラで稼働継続）
@@ -441,10 +506,18 @@ class Seed0Agent:
                 logger.warning(f"step_trace.jsonl close失敗: {e}")
             self._step_trace_file = None
 
-        # PIDファイルを削除
-        remove_pid_file()
+        # PIDロック解放 + PIDファイル削除（冪等）
+        self._release_pid_lock_idempotent()
 
         logger.info("Seed0 Phase 1 終了")
+
+    def _release_pid_lock_idempotent(self):
+        """flockロック解放とPIDファイル削除。冪等（atexitと_shutdownの両経路から呼ばれる）。"""
+        if self._pid_released:
+            return
+        self._pid_released = True
+        release_pid_lock(self._pid_lock_fd, PID_FILE)
+        self._pid_lock_fd = None
 
 
 # ─────────────────────────────────────────────
