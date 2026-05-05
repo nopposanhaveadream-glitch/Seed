@@ -171,6 +171,11 @@ class ConsciousProcess:
         # think_and_act呼出ごとに、agent.pyがstep_trace.jsonlへ書き出すための
         # 決定時情報を蓄積する。書込側はこのdictをコピーして使用する。
         self.last_step_trace = {}
+        # ── AOR（観察層）用副作用フィールド（決定ロジックには影響しない） ──
+        # think_and_act 内の execute_action(chosen) の戻り値を保持する。
+        # AOR が action_result として参照する（既存の戻り値を捨てずに記録する経路）。
+        # 早期 return 経路（sleeping/blocked）では None のまま。
+        self.last_action_result = None
 
     def think_and_act(self, state, sensors: dict, next_sensors: dict,
                        dt: float) -> str:
@@ -184,6 +189,11 @@ class ConsciousProcess:
 
         returns: 選択された行動名
         """
+        # ── 副作用フィールドのリセット ──
+        # last_action_result は早期 return 経路では None のまま。
+        # 通常経路では execute_action の戻り値で上書きされる。
+        self.last_action_result = None
+
         # ── ステップトレースをデフォルト値で初期化（睡眠/blockedで早期returnしてもこの値が読まれる） ──
         # 後段で行動選択が成立した場合のみ、決定時の値で上書きする。
         self.last_step_trace = {
@@ -269,6 +279,8 @@ class ConsciousProcess:
 
         # 行動の実行
         result = execute_action(chosen)
+        # AOR が読み出すために保持（決定ロジックには影響しない）
+        self.last_action_result = result
 
         # rest行動の特殊処理: VE回復（食事）+ BMC軽減リベート
         if chosen == "rest":

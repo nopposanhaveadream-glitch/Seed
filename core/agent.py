@@ -31,6 +31,12 @@ from core.state import AgentState
 from core.unconscious import UnconsciousProcess
 from core.conscious import ConsciousProcess
 from core.comfort_zone import evaluate_comfort_zone
+from core.action_outcome_recorder import (
+    ActionOutcomeRecorder,
+    STATUS_EXECUTED,
+    STATUS_SLEEPING,
+    STATUS_BLOCKED,
+)
 
 
 # ─────────────────────────────────────────────
@@ -208,6 +214,14 @@ class Seed0Agent:
         self._pid_lock_fd = None
         self._pid_released = False  # release_pid_lock呼出を冪等にするためのフラグ
 
+        # ── 観察層（Action Outcome Recorder） ──
+        # 行動前後の状態スナップショットを記録する Write-Only 層。
+        # Q学習・行動選択・代謝・記憶には影響しない（§4.1〜§4.3）。
+        # run() 内で初期化、_shutdown() で close する。
+        self._aor = None
+        # 前ステップの step_id を保持。次ステップ冒頭で sensors_after の更新に使う。
+        self._aor_prev_step_id = None
+
         # 状態の復元または初期化
         if resume and self.state.load():
             logger.info("前回の状態から復帰しました")
@@ -238,6 +252,15 @@ class Seed0Agent:
         except Exception as e:
             logger.warning(f"step_trace.jsonl を開けません: {e}")
             self._step_trace_file = None
+
+        # ── 観察層（AOR）の初期化 ──
+        # 失敗時は内部で _disabled フラグが立ち、以降の record/update は no-op。
+        # 主処理には一切影響しない（§4.2 エラー隔離）。
+        try:
+            self._aor = ActionOutcomeRecorder()
+        except Exception as e:
+            logger.warning(f"AOR 初期化失敗（記録は無効化、主処理は継続）: {e}")
+            self._aor = None
 
         self._running = True
         logger.info("=" * 50)
@@ -285,6 +308,13 @@ class Seed0Agent:
         # === 1. SENSE（感知）===
         sensors = read_all_sensors(use_sudo=self.use_sudo)
 
+        # === AOR: 前ステップの state_after.sensors を埋める（オプションB）===
+        # 観察層は read-only（state を一切変更しない）、エラーは内部で隔離（§4.2）
+        if self._aor is not None and self._aor_prev_step_id is not None:
+            self._aor.update_state_after_sensors(
+                self._aor_prev_step_id, sensors
+            )
+
         # 即時記憶にbefore値を記録
         self.state.immediate_memory.record_before(sensors)
 
@@ -320,11 +350,68 @@ class Seed0Agent:
 
         # === 3-5. DECIDE → ACT → EVALUATE === 意識プロセス
         # 次のセンサー値がないので、前回のセンサー値との差分で評価
+
+        # === AOR: state_before の内部状態をスナップショット（think_and_act 直前） ===
+        # 観察層は state を read-only でアクセスする（§4.1）。
+        # 例外は内部で隔離する（§4.2）が、ここは単純な属性読み取りなので例外発生なし。
+        aor_state_before_internal = None
+        if self._aor is not None:
+            aor_state_before_internal = {
+                "ve": self.state.ve,
+                "fatigue": self.state.fatigue,
+                "cz_status": self.state.comfort_zone_status,
+                "is_sleeping": self.state.is_sleeping,
+                "stm_count": self.state.short_term_memory.count,
+            }
+
         ve_before = self.state.ve
         chosen = self.conscious.think_and_act(
             self.state, sensors, self.state.prev_sensors, dt
         )
         ve_after = self.state.ve
+
+        # === AOR: state_after の内部状態をスナップショット（think_and_act 直後） ===
+        # state_after.sensors は次ステップ冒頭で update_state_after_sensors により埋まる（オプションB）。
+        if self._aor is not None and aor_state_before_internal is not None:
+            try:
+                aor_state_after_internal = {
+                    "ve": self.state.ve,
+                    "fatigue": self.state.fatigue,
+                    "cz_status": self.state.comfort_zone_status,
+                    "is_sleeping": self.state.is_sleeping,
+                    "stm_count": self.state.short_term_memory.count,
+                }
+                # action_status の決定（早期 return 経路を識別）
+                if chosen == "sleeping":
+                    aor_action_status = STATUS_SLEEPING
+                    aor_action_result = None
+                elif chosen == "blocked":
+                    aor_action_status = STATUS_BLOCKED
+                    aor_action_result = None
+                else:
+                    aor_action_status = STATUS_EXECUTED
+                    # conscious.py が execute_action の戻り値を保持している
+                    aor_action_result = getattr(
+                        self.conscious, "last_action_result", None
+                    )
+
+                self._aor.record(
+                    step_id=self.state.total_steps,
+                    ts=datetime.datetime.now().isoformat(timespec="seconds"),
+                    action_name=chosen,
+                    action_status=aor_action_status,
+                    state_before={
+                        "sensors": sensors,
+                        "internal": aor_state_before_internal,
+                    },
+                    state_after_internal=aor_state_after_internal,
+                    action_result=aor_action_result,
+                )
+                # 次ステップで sensors_after を埋めるための step_id を保持
+                self._aor_prev_step_id = self.state.total_steps
+            except Exception as e:
+                # §4.2 エラー隔離: AOR の例外は主処理に伝播させない
+                logger.warning(f"AOR 記録時の例外（主処理は継続）: {e}")
 
         # 入眠の検知
         if not was_sleeping and self.state.is_sleeping:
@@ -505,6 +592,15 @@ class Seed0Agent:
             except Exception as e:
                 logger.warning(f"step_trace.jsonl close失敗: {e}")
             self._step_trace_file = None
+
+        # 観察層（AOR）を閉じる
+        if self._aor is not None:
+            try:
+                self._aor.close()
+                logger.info("  action_outcomes.db を閉じました")
+            except Exception as e:
+                logger.warning(f"AOR close失敗: {e}")
+            self._aor = None
 
         # PIDロック解放 + PIDファイル削除（冪等）
         self._release_pid_lock_idempotent()
