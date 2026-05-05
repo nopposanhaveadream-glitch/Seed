@@ -8,6 +8,8 @@ Mac miniを「身体」として生きる代謝AI。詳細は README.md と docs
 - docs/design_partner_guide.md（設計パートナーとしての振る舞い指針）
 - docs/phase1_retrospective_2026-05-01.md（Phase 1 振り返り）
 - docs/known_issues_2026-05-01.md（運用基盤の既知の問題）
+- docs/contamination_evaluation_2026-05-02.md（優先度2: 4/18-19 汚染影響評価の判断記録）
+- docs/session_log_2026-05-05_phase_d_layer_specification.md（直近セッションの到達点と次回への申し送り）
 
 ## 第一原則
 「Seed0に与えるのは構造だけ。動機はすべて構造から生まれなければならない。」
@@ -26,16 +28,21 @@ Mac miniを「身体」として生きる代謝AI。詳細は README.md と docs
 
 ## 現在のフェーズ
 Phase 1 のフェーズC が 2026-05-01 13:55:45 に graceful shutdown で終了。Seed0 は現在停止中。
-フェーズD（環境2: 遊び場）への進行判断は保留中。保留の理由は docs/known_issues_2026-05-01.md と docs/phase1_retrospective_2026-05-01.md を参照。
+
+Phase 1 振り返り後の保留事由は両方とも 2026-05-02 に完了:
+- 優先度1（二重起動防止の実装強化）: commit `3adb880`（flock 化）
+- 優先度2（4/18-19 汚染の影響評価）: docs/contamination_evaluation_2026-05-02.md（現状受容の判断）
+
+優先度3（フェーズD 進行の正式判断）は未着手。並行して、AOR（観察層、Action Outcome Recorder）の実装を **環境1 の延長として** Code に依頼済み（2026-05-05、詳細は docs/session_log_2026-05-05_phase_d_layer_specification.md）。
 
 core/agent.py は代謝エージェント本体。再起動する場合は `python3 -m core.agent` で前回状態から復帰する（state.load() 経由、詳細は core/state.py）。
 
 ## ディレクトリ構造
 - phase0/ — センサーデータ収集（Phase 0完了済み）
-- core/ — 代謝エージェント（Phase 1 稼働中）
+- core/ — 代謝エージェント（Phase 1 完了、現在停止中）
 - simulation/ — シミュレーション検証
 - tests/ — 単体テスト
-- sandbox/ — 遊び場（Phase 2以降で実装）
+- sandbox/ — 遊び場（環境2 / フェーズD 以降で実装）
 - config/ — 設定ファイル
 - docs/ — 設計文書
 

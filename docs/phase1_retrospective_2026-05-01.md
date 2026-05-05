@@ -126,3 +126,5 @@
 ---
 
 *このドキュメントは Phase 1 全期間の振り返り議論の記録である。フェーズD設計議論の出発点として参照する。設計議論プロセス自体の点検は `session_log_2026-05-01_design_partnership.md` に分離して記録した。*
+
+*振り返り後の発展（優先度1・2の完了、AOR 実装着手、観察層・予測層・書換層の枠組みの議論）は、`docs/contamination_evaluation_2026-05-02.md`、`docs/session_log_2026-05-02_phase_d_discussion.md`、`docs/session_log_2026-05-05_phase_d_layer_specification.md` を参照。*
