@@ -10,6 +10,8 @@ Mac miniを「身体」として生きる代謝AI。詳細は README.md と docs
 - docs/known_issues_2026-05-01.md（運用基盤の既知の問題）
 - docs/contamination_evaluation_2026-05-02.md（優先度2: 4/18-19 汚染影響評価の判断記録）
 - docs/session_log_2026-05-05_phase_d_layer_specification.md（直近セッションの到達点と次回への申し送り）
+- docs/session_log_2026-05-05_aor_implementation_completion.md（AOR 実装完了、運用ルール v3 確定、Seed0 再起動、2026-05-05 夕方〜2026-05-06 朝）
+- docs/operational_rules_2026-05-05_code_initiative.md（Code 先回り現象と双方の責務、運用ルール v3）
 
 ## 第一原則
 「Seed0に与えるのは構造だけ。動機はすべて構造から生まれなければならない。」
